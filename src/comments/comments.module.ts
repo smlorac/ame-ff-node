@@ -1,9 +1,21 @@
 import { Module } from '@nestjs/common';
-import { CommentsService } from './comments.service';
-import { CommentsController } from './comments.controller';
+import { CommentService } from './comments.service';
+import { CommentController } from './comments.controller';
+import { MongooseModule } from '@nestjs/mongoose';
+import { CommentSchema } from './comments.schema';
+
 
 @Module({
-  controllers: [CommentsController],
-  providers: [CommentsService]
+  imports: [
+    // Cria uma tabela no BD com o nome comment e os valores do schema como colunas
+    MongooseModule.forFeature([
+      {
+        name: 'Comment',
+        schema: CommentSchema,
+      },
+    ]),
+  ],
+  controllers: [CommentController],
+  providers: [CommentService]
 })
 export class CommentsModule {}

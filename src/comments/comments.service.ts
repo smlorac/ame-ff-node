@@ -2,65 +2,72 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { UpdateCommentDto } from './dto/update-comment.dto';
 import { Comment } from './entities/comment.entity';
+import { IComment } from './comments.schema';
+import { Model } from 'mongoose';
+import { InjectModel } from '@nestjs/mongoose';
 
 @Injectable()
-export class CommentsService {
+export class CommentService {
+  constructor(
+    @InjectModel('Comment')
+    private commentModel: Model<IComment>,
+  ) {}
 
   private comments: Comment[] = [
     {
       id: 1,
-      comment: "teste",
-      user_id: "1",
+      comment: 'Some comment',
+      user_id: '1',
     },
   ];
 
-  create(createCommentDto: CreateCommentDto) {
-    const lastId = this.comments[this.comments.length -1 ]?.id || 0;
+  async create(createCommentDto: CreateCommentDto) {
+    const newComment = new this.commentModel(createCommentDto);
 
-    const newComment = {
-      id: lastId +1,
-      ... createCommentDto,
-    };
+    const savedComment = await newComment.save();
 
-    this.comments.push(newComment);
-    
-    return newComment;
+    return formatComment(savedComment);
   }
 
-  findAll() {
-    return this.comments;
+  async findAll() {
+    const comments = await this.commentModel.find();
+
+    return comments.map((comment: IComment) => formatComment(comment));
   }
 
-  findOne(id: number) {
-    const comment = this.comments.find((comment) => comment.id === id);
+  async findOne(id: string) {
+    try {
+      const comment = await this.commentModel.findById(id);
 
-    if (!comment){
-      throw new NotFoundException('Comentário não encontrado');
+      if (!comment) {
+        throw new NotFoundException(`Comentário ${id} não encontrado`);
+      }
+
+      return formatComment(comment);
+    } catch (err) {
+      throw new NotFoundException(`Comentário ${id} não encontrado`);
     }
-
-    return comment;
   }
 
-  update(id: number, updateCommentDto: UpdateCommentDto) {
-    const comment = this.findOne(id);
+  async update(id: string, updateCommentDto: UpdateCommentDto) {
+    await this.findOne(id);
 
-    const index = this.comments.indexOf(comment);
+    await this.commentModel.findOneAndUpdate({ _id: id }, updateCommentDto);
 
-    const newComment = {
-      ... comment,
-      ... updateCommentDto,
-    };
+    const updatedComment = await this.findOne(id);
 
-    this.comments[index] = newComment;
-
-    return newComment;
+    return formatComment(updatedComment);
   }
 
-  remove(id: number) {
-    const comment = this.findOne(id);
+  async remove(id: string) {
+    await this.findOne(id);
 
-    const index = this.comments.indexOf(comment);
-
-    this.comments.splice(index, 1);
+    await this.commentModel.findByIdAndDelete(id);
   }
 }
+
+const formatComment = (comment: IComment) => ({
+  id: comment.id,
+  comment: comment.comment,
+  user_id: comment.user_id,
+});
